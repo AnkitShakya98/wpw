@@ -815,15 +815,21 @@ async def start_download(client, message, user_id, items, start_idx, total, pb):
 
     log.info(f"⬇️ download start {start_idx}-{total} for {user_id}")
     sent_msg_ids[user_id] = []
-    prog = await message.reply_text(f"⏳ Download shuru: {start_idx}/{total}")
+    prog = await message.reply_text(f"⏳ Download start: {start_idx}/{total}")
 
     count = start_idx - 1
 
     for i, it in enumerate(items, start=start_idx):
         count += 1
-        try:
-            if it["type"] == "LECTURE":
-                await prog.edit_text(f"🎬 [{i}/{total}] `{it['topic']}`")
+
+        # ---------- VIDEO ----------
+        if it["type"] == "LECTURE":
+            try:
+                try:
+                    await prog.edit_text(f"🎬 [{i}/{total}] `{it['topic']}`")
+                except Exception:
+                    prog = await message.reply_text(f"🎬 [{i}/{total}] `{it['topic']}`")
+
                 log.info(f"🎬 video {i}/{total}: {it['topic']}")
                 signed = await get_signed_url(batch_id, it["sub_slug"], it["sch_id"], it["topic"], cookie)
                 if signed:
@@ -834,8 +840,27 @@ async def start_download(client, message, user_id, items, start_idx, total, pb):
                         cap = build_caption(count, n1, "mkv", f"{quality}p", batch_name)
                         await send_vid(client, message, cap, f, "no", n1, prog)
                         log.info(f"✅ uploaded video {i}/{total}")
-            else:
-                await prog.edit_text(f"📄 [{i}/{total}] `{it['topic']}`")
+
+                # ✅ send_vid ne prog delete kar diya — naya banao
+                try:
+                    prog = await message.reply_text(f"⏳ [{i}/{total}] video done, next...")
+                except Exception:
+                    prog = await message.reply_text(f"⏳ Continuing...")
+
+            except Exception as e:
+                log.error(f"❌ video {i}: {e}")
+                try:
+                    prog = await message.reply_text(f"⏳ video error, next...")
+                except: pass
+
+        # ---------- PDF ----------
+        elif it["type"] == "PDF":
+            try:
+                try:
+                    await prog.edit_text(f"📄 [{i}/{total}] `{it['topic']}`")
+                except Exception:
+                    prog = await message.reply_text(f"📄 [{i}/{total}] `{it['topic']}`")
+
                 log.info(f"📄 pdf {i}/{total}: {it['topic']}")
                 n1 = clean_filename(it["topic"], OWNER_NAME)
                 fp = os.path.join(DOWNLOAD_DIR, f"{n1}.pdf")
@@ -844,8 +869,18 @@ async def start_download(client, message, user_id, items, start_idx, total, pb):
                     cap = build_caption(count, n1, "pdf", None, batch_name)
                     await send_doc(client, message, cap, f, cap, prog, count, n1)
                     log.info(f"✅ uploaded pdf {i}/{total}")
-        except Exception as e:
-            log.error(f"❌ item {i}: {e}")
+
+                # ✅ send_doc ke baad bhi naya prog (safe)
+                try:
+                    prog = await message.reply_text(f"⏳ [{i}/{total}] pdf done, next...")
+                except Exception:
+                    prog = await message.reply_text(f"⏳ Continuing...")
+
+            except Exception as e:
+                log.error(f"❌ pdf {i}: {e}")
+                try:
+                    prog = await message.reply_text(f"⏳ pdf error, next...")
+                except: pass
 
     try:
         await prog.delete()
@@ -853,7 +888,7 @@ async def start_download(client, message, user_id, items, start_idx, total, pb):
     sent_msg_ids[user_id] = []
     pending_batch.pop(user_id, None)
     log.info(f"✅ download complete for {user_id}")
-
+    
 # ==========================================
 # 🏁 RUN
 # ==========================================
