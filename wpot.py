@@ -10,9 +10,15 @@ from datetime import datetime
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
-from bot_instance import app
+from vars import API_ID, API_HASH, BOT_TOKEN
 from utils import progress_bar
 
+app = Client(
+    "bot",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN
+)
 # ==========================================
 # ⚙️ CONFIG
 # ==========================================
@@ -867,3 +873,6 @@ async def start_download(client, message, user_id, items, start_idx, total, pb):
     sent_msg_ids[user_id] = []
     pending_batch.pop(user_id, None)
     log.info(f"✅ download complete for {user_id}")
+
+
+app.run()
