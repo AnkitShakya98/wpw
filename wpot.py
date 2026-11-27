@@ -28,7 +28,12 @@ OWNER_NAME = "Ankit Shakya"
 
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - [%(levelname)s] - %(message)s"
+)
 log = logging.getLogger(__name__)
+
 
 # ==========================================
 # 🧠 STATE
@@ -75,6 +80,7 @@ async def fetch_api(url, headers):
         try:
             async with session.get(url, headers=headers, timeout=30) as r:
                 if r.status == 200:
+                    log.info(f"🌐 API GET: {r.status}:")
                     return json.loads(await r.text())
                 log.warning(f"⚠️ API {r.status}: {url[:80]}")
         except Exception as e:
