@@ -21,4 +21,4 @@ RUN mkdir -p /app/downloads
 
 ENV PYTHONUNBUFFERED=1
 
-CMD gunicorn app:app & python wbot.py
+CMD gunicorn app:app & python wpot.py
