@@ -92,15 +92,18 @@ def clean_filename(title, owner):
          .replace("http","").strip())
     return f"{n[:60]} {owner}".strip()
 
-def build_caption(count, name1, ext, res, b_name):
+
+def build_caption(count, name1, ext, res, b_name, user_mention=""):
     num = str(count).zfill(3)
+    mention_line = f"\n**👤 Extracted By:** {user_mention}\n" if user_mention else ""
     if ext == "pdf":
         return (
             f"**\n╭──────.★..─╮\n{num}\n╰─..★.──────╯**\n\n"
             f"**📝 Title:** {name1} \n"
             f"**├── Extention :** {OWNER_NAME}.pdf\n"
             f"**├── Resolution :** [None]\n\n"
-            f"<pre><code>📚 Batch Name: {b_name}</code></pre>\n\n"
+            f"<pre><code>📚 Batch Name: {b_name}</code></pre>\n"
+            f"{mention_line}\n"
             f"**📥 Extracted By :**\n╭──────────.✨..─╮\n\n      {OWNER_NAME}\n\n╰─..✨.──────────╯\n\n"
             f"**<pre><code>━━━━━✦𝐀𝐍𝐊𝐈𝐓❤️✦━━━━━</code></pre>**"
         )
@@ -109,7 +112,8 @@ def build_caption(count, name1, ext, res, b_name):
         f"**📝 Title:** {name1} \n"
         f"**├── Extention :** {OWNER_NAME}.mkv\n"
         f"**├── Resolution :** [{res}]\n\n"
-        f"<pre><code>📚 Batch Name: {b_name}</code></pre>\n\n"
+        f"<pre><code>📚 Batch Name: {b_name}</code></pre>\n"
+        f"{mention_line}\n"
         f"**📥 Extracted By :**\n╭──────────.✨..─╮\n\n      {OWNER_NAME}\n\n╰─..✨.──────────╯\n\n"
         f"**<pre><code>━━━━━✦𝐀𝐍𝐊𝐈𝐓❤️✦━━━━━</code></pre>**"
     )
@@ -148,7 +152,76 @@ async def get_pdf_url(batch_id, sub_slug, pdf_id, attachment_id, topic, cookie):
 # ==========================================
 # ⬇️ DOWNLOAD (direct API + yt-dlp + aria2)
 # ==========================================
-async def download_m3u8(signed_url, quality, filepath):
+async def download_m3u8(signed_url, quality, filepath, prog_msg=None):
+    """
+    Direct API + yt-dlp + aria2 se download with progress.
+    """
+    api_url = f"https://ankitshakyaxapi.vercel.app/download?mpd_url={urllib.parse.quote(signed_url, safe='')}&quality={quality}"
+    log.info(f"⬇️ yt-dlp direct: quality={quality}")
+
+    cmd = [
+        "yt-dlp",
+        "--downloader", "aria2c",
+        "--downloader-args", f"aria2c:-x {ARIA2_CONNECTIONS} -s {ARIA2_CONNECTIONS} -k 1M",
+        "--hls-prefer-native",
+        "--no-part",
+        "--newline",              # ✅ line-by-line progress
+        "--progress",             # ✅ progress show
+        "-o", filepath,
+        api_url
+    ]
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT
+    )
+
+    last_update = 0
+    async for line in proc.stdout:
+        text = line.decode(errors="ignore").strip()
+        if not text:
+            continue
+        # yt-dlp progress line: [download]  45.2% of 123.45MiB at 2.34MiB/s ETA 00:30
+        if "[download]" in text and "%" in text:
+            try:
+                # extract % and speed
+                m = re.search(r'(\d+\.?\d*)%.*?at\s+([\d\.]+\w+/s)', text)
+                if m and prog_msg:
+                    now = asyncio.get_event_loop().time()
+                    if now - last_update > 2:   # har 2 sec me update
+                        last_update = now
+                        perc = m.group(1)
+                        speed = m.group(2)
+                        try:
+                            await prog_msg.edit_text(
+                                f"⬇️ **Downloading...**\n"
+                                f"📊 Progress: `{perc}%`\n"
+                                f"🚀 Speed: `{speed}`"
+                            )
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+    await proc.wait()
+
+    if proc.returncode != 0:
+        log.error(f"❌ yt-dlp failed")
+        return None
+
+    if os.path.exists(filepath):
+        return filepath
+
+    d = os.path.dirname(filepath)
+    base = os.path.splitext(os.path.basename(filepath))[0]
+    for f in os.listdir(d):
+        if f.startswith(base[:30]):
+            return os.path.join(d, f)
+
+    return None
+
+
+async def signeddownload_m3u8(signed_url, quality, filepath):
     """
     Direct API + yt-dlp + aria2 se download.
     API: ankitshakyaxapi.vercel.app/download?mpd_url={signed_url}&quality={quality}
@@ -808,6 +881,7 @@ async def full_batch(c, cb: CallbackQuery):
 # ==========================================
 # ⬇️ DOWNLOAD LOOP (send_vid / send_doc use)
 # ==========================================
+
 async def start_download(client, message, user_id, items, start_idx, total, pb):
     batch_name = pb["batch_name"]
     batch_id = pb["batch_id"]
@@ -815,9 +889,12 @@ async def start_download(client, message, user_id, items, start_idx, total, pb):
     cookie = pb["cookie"]
     quality = pb["quality"]
 
+    user_mention = message.from_user.mention   # ✅ user mention
+
     log.info(f"⬇️ download start {start_idx}-{total} for {user_id}")
     sent_msg_ids[user_id] = []
-    prog = await message.reply_text(f"⏳ Download start: {start_idx}/{total}")
+    prog = await message.reply_text(f"⏳ Download shuru: {start_idx}/{total}")
+    sent_msg_ids[user_id].append(prog.id)
 
     count = start_idx - 1
 
@@ -831,28 +908,31 @@ async def start_download(client, message, user_id, items, start_idx, total, pb):
                     await prog.edit_text(f"🎬 [{i}/{total}] `{it['topic']}`")
                 except Exception:
                     prog = await message.reply_text(f"🎬 [{i}/{total}] `{it['topic']}`")
+                    sent_msg_ids[user_id].append(prog.id)
 
                 log.info(f"🎬 video {i}/{total}: {it['topic']}")
                 signed = await get_signed_url(batch_id, it["sub_slug"], it["sch_id"], it["topic"], cookie)
                 if signed:
                     n1 = clean_filename(it["topic"], OWNER_NAME)
                     fp = os.path.join(DOWNLOAD_DIR, f"{n1}.mkv")
-                    f = await download_m3u8(signed, quality, fp)
+                    # ✅ prog pass karo speed ke liye
+                    f = await download_m3u8(signed, quality, fp, prog)
                     if f:
-                        cap = build_caption(count, n1, "mkv", f"{quality}p", batch_name)
+                        cap = build_caption(count, n1, "mkv", f"{quality}p", batch_name, user_mention)
                         await send_vid(client, message, cap, f, "no", n1, prog)
                         log.info(f"✅ uploaded video {i}/{total}")
 
-                # ✅ send_vid ne prog delete kar diya — naya banao
                 try:
                     prog = await message.reply_text(f"⏳ [{i}/{total}] video done, next...")
+                    sent_msg_ids[user_id].append(prog.id)
                 except Exception:
-                    prog = await message.reply_text(f"⏳ Continuing...")
+                    prog = await message.reply_text("⏳ Continuing...")
 
             except Exception as e:
                 log.error(f"❌ video {i}: {e}")
                 try:
                     prog = await message.reply_text(f"⏳ video error, next...")
+                    sent_msg_ids[user_id].append(prog.id)
                 except: pass
 
         # ---------- PDF ----------
@@ -862,31 +942,35 @@ async def start_download(client, message, user_id, items, start_idx, total, pb):
                     await prog.edit_text(f"📄 [{i}/{total}] `{it['topic']}`")
                 except Exception:
                     prog = await message.reply_text(f"📄 [{i}/{total}] `{it['topic']}`")
+                    sent_msg_ids[user_id].append(prog.id)
 
                 log.info(f"📄 pdf {i}/{total}: {it['topic']}")
                 n1 = clean_filename(it["topic"], OWNER_NAME)
                 fp = os.path.join(DOWNLOAD_DIR, f"{n1}.pdf")
                 f = await download_pdf(it["pdf_url"], fp)
                 if f:
-                    cap = build_caption(count, n1, "pdf", None, batch_name)
+                    cap = build_caption(count, n1, "pdf", None, batch_name, user_mention)
                     await send_doc(client, message, cap, f, cap, prog, count, n1)
                     log.info(f"✅ uploaded pdf {i}/{total}")
 
-                # ✅ send_doc ke baad bhi naya prog (safe)
                 try:
                     prog = await message.reply_text(f"⏳ [{i}/{total}] pdf done, next...")
+                    sent_msg_ids[user_id].append(prog.id)
                 except Exception:
-                    prog = await message.reply_text(f"⏳ Continuing...")
+                    prog = await message.reply_text("⏳ Continuing...")
 
             except Exception as e:
                 log.error(f"❌ pdf {i}: {e}")
                 try:
                     prog = await message.reply_text(f"⏳ pdf error, next...")
+                    sent_msg_ids[user_id].append(prog.id)
                 except: pass
 
-    try:
-        await prog.delete()
-    except: pass
+    # ✅ Cleanup: saare progress messages delete
+    for mid in sent_msg_ids.get(user_id, []):
+        try:
+            await client.delete_messages(message.chat.id, mid)
+        except: pass
     sent_msg_ids[user_id] = []
     pending_batch.pop(user_id, None)
     log.info(f"✅ download complete for {user_id}")
