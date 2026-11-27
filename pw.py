@@ -158,7 +158,9 @@ async def download_m3u8(signed_url, quality, filepath):
 
     cmd = [
         "yt-dlp",
+        "--newline",
         "--downloader", "aria2c",
+        "--concurrent-fragments", "16",
         "--downloader-args", f"aria2c:-x {ARIA2_CONNECTIONS} -s {ARIA2_CONNECTIONS} -k 1M",
         "--hls-prefer-native",
         "--no-part",
