@@ -7,7 +7,7 @@ import logging
 import aiohttp
 import urllib.parse
 from datetime import datetime
-from pyrogram import filters
+from pyrogram import filters, Client
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
 from vars import API_ID, API_HASH, BOT_TOKEN
