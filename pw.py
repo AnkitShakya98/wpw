@@ -95,26 +95,24 @@ def clean_filename(title, owner):
 
 def build_caption(count, name1, ext, res, b_name, user_mention=""):
     num = str(count).zfill(3)
-    mention_line = f"\n**👤 Extracted By:** {user_mention}\n" if user_mention else ""
+    mention_line = f"{user_mention}" if user_mention else ""
     if ext == "pdf":
         return (
             f"**\n╭──────.★..─╮\n{num}\n╰─..★.──────╯**\n\n"
             f"**📝 Title:** {name1} \n"
-            f"**├── Extention :** {OWNER_NAME}.pdf\n"
+            f"**├── Extention :** {mention_line}.pdf\n"
             f"**├── Resolution :** [None]\n\n"
             f"<pre><code>📚 Batch Name: {b_name}</code></pre>\n"
-            f"{mention_line}\n"
-            f"**📥 Extracted By :**\n╭──────────.✨..─╮\n\n      {OWNER_NAME}\n\n╰─..✨.──────────╯\n\n"
+            f"**📥 Extracted By :**\n╭──────────.✨..─╮\n\n      {mention_line}\n\n╰─..✨.──────────╯\n\n"
             f"**<pre><code>━━━━━✦𝐀𝐍𝐊𝐈𝐓❤️✦━━━━━</code></pre>**"
         )
     return (
         f"**\n╭──────.★..─╮\n{num}\n╰─..★.──────╯**\n\n"
         f"**📝 Title:** {name1} \n"
-        f"**├── Extention :** {OWNER_NAME}.mkv\n"
+        f"**├── Extention :** {mention_line}.mkv\n"
         f"**├── Resolution :** [{res}]\n\n"
         f"<pre><code>📚 Batch Name: {b_name}</code></pre>\n"
-        f"{mention_line}\n"
-        f"**📥 Extracted By :**\n╭──────────.✨..─╮\n\n      {OWNER_NAME}\n\n╰─..✨.──────────╯\n\n"
+        f"**📥 Extracted By :**\n╭──────────.✨..─╮\n\n      {mention_line}\n\n╰─..✨.──────────╯\n\n"
         f"**<pre><code>━━━━━✦𝐀𝐍𝐊𝐈𝐓❤️✦━━━━━</code></pre>**"
     )
 
