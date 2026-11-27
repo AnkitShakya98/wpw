@@ -19,8 +19,8 @@ class CP(metaclass=_M): pass
 
 import pyrogram
 pyrogram.Client = CP
-import bot  # noqa
-
+import bot
+log.info(f"📊 Handlers loaded: {sum(len(v) for v in app.dispatcher.groups.values())} groups")
 log.info("📦 pwbot loaded")
 
 async def main():
