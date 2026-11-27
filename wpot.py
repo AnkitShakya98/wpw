@@ -180,9 +180,11 @@ async def get_m3u8_from_api(signed_url, quality):
 async def download_m3u8(m3u8_source, filepath):
     cmd = [
         "yt-dlp",
+        "--newline",
         "--downloader", "aria2c",
         "--downloader-args", f"aria2c:-x {ARIA2_CONNECTIONS} -s {ARIA2_CONNECTIONS} -k 1M",
         "--hls-prefer-native",
+        "--no-part",
         "-o", filepath,
         m3u8_source
     ]
@@ -190,12 +192,26 @@ async def download_m3u8(m3u8_source, filepath):
     proc = await asyncio.create_subprocess_exec(
         *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
-    await proc.communicate()
-    for f in os.listdir(os.path.dirname(filepath)):
-        if f.startswith(os.path.basename(filepath)):
-            return os.path.join(os.path.dirname(filepath), f)
-    return None
+    stdout, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        log.error(f"❌ yt-dlp failed: {stderr.decode()[:300]}")
+        return None
 
+    # Exact file check
+    if os.path.exists(filepath):
+        return filepath
+
+    # Fallback: same directory me koi bhi naya file
+    d = os.path.dirname(filepath)
+    base = os.path.splitext(os.path.basename(filepath))[0]
+    for f in os.listdir(d):
+        if f.startswith(base[:30]):  # first 30 chars match
+            full = os.path.join(d, f)
+            log.info(f"✅ found: {f}")
+            return full
+
+    log.error(f"❌ file not found: {filepath}")
+    return None
 async def download_pdf(url, filepath):
     log.info(f"⬇️ PDF: {os.path.basename(filepath)}")
     async with aiohttp.ClientSession() as s:
@@ -424,6 +440,8 @@ async def schedule_menu(c, cb: CallbackQuery):
     log.info(f"📅 schedule_menu: {cb.data}")
     await cb.answer()
     uid = cb.matches[0].group(1)
+    if uid not in db_cache:
+        return await cb.answer("❌ Expired", show_alert=True)
     buttons = [
         [InlineKeyboardButton("📅 Today", callback_data=f"sch_today_{uid}")],
         [InlineKeyboardButton("🗓 Specific Date", callback_data=f"sch_date_{uid}")],
@@ -452,6 +470,7 @@ async def schedule_date(c, cb: CallbackQuery):
 
 async def prepare_schedule_items(message_obj, uid, target_date, token, cookie, quality):
     data = db_cache.get(uid)
+    log.info(f"📅 prepare_schedule: uid={uid}, data={'✅' if data else '❌'}, cache_keys={list(db_cache.keys())}")
     if not data:
         return await message_obj.edit_text("❌ Expired")
     batch_id, batch_name = data["b_id"], data["name"]
