@@ -1,35 +1,48 @@
-import os, asyncio, logging
+import os
+import asyncio
+import logging
 from pyrogram import Client
 
-API_ID = "37544265"
-API_HASH = "5f53786ad74b0333802e4a3bb1771636"
-BOT_TOKEN = "8740144807:AAFofAfAxXMyGu8Wm7Qbnwzd101E1PJ0PFk"
+API_ID = int(os.environ.get("API_ID", 0))
+API_HASH = os.environ.get("API_HASH", "")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - [%(levelname)s] - %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - [%(levelname)s] - %(message)s"
+)
 log = logging.getLogger(__name__)
 
-app = Client("pwbot_session", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+app = Client(
+    "pwbot_session",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN,
+)
 
-class _M(type):
-    def __getattr__(cls, i): return getattr(app, i)
-    def __instancecheck__(cls, x): return isinstance(x, Client)
+# ✅ pwbot import — app create ke baad
+import bot  # noqa
 
-class CP(metaclass=_M): pass
+# handlers count check
+try:
+    total = sum(len(v) for v in app.dispatcher.groups.values())
+    log.info(f"📊 Handlers registered: {total}")
+except Exception as e:
+    log.error(f"Handler count error: {e}")
 
-import pyrogram
-pyrogram.Client = CP
-import bot
-log.info(f"📊 Handlers loaded: {sum(len(v) for v in app.dispatcher.groups.values())} groups")
-log.info("📦 pwbot loaded")
 
 async def main():
-    if not API_ID or not API_HASH or not BOT_TOKEN: return log.error("❌ creds")
+    if not API_ID or not API_HASH or not BOT_TOKEN:
+        return log.error("❌ creds missing")
     async with app:
         me = await app.get_me()
-        log.info(f"✅ @{me.username}")
+        log.info(f"✅ @{me.username} ({me.id})")
+        log.info("📡 Bot running...")
         await asyncio.Event().wait()
 
+
 if __name__ == "__main__":
-    try: asyncio.run(main())
-    except KeyboardInterrupt: pass
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        log.info("🛑 Stopped")
