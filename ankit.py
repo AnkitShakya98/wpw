@@ -1,9 +1,10 @@
 import os, asyncio, logging
 from pyrogram import Client
 
-API_ID = int(os.environ.get("API_ID", 0))
-API_HASH = os.environ.get("API_HASH", "")
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+API_ID = "37544265"
+API_HASH = "5f53786ad74b0333802e4a3bb1771636"
+BOT_TOKEN = "8740144807:AAFofAfAxXMyGu8Wm7Qbnwzd101E1PJ0PFk"
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - [%(levelname)s] - %(message)s")
 log = logging.getLogger(__name__)
