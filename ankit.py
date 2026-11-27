@@ -18,7 +18,7 @@ class CP(metaclass=_M): pass
 
 import pyrogram
 pyrogram.Client = CP
-import pwbot  # noqa
+import bot  # noqa
 
 log.info("📦 pwbot loaded")
 
