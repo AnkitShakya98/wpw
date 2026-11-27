@@ -10,9 +10,15 @@ from datetime import datetime
 from pyrogram import Client
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-
+from vars import API_ID, API_HASH, BOT_TOKEN
 from utils import progress_bar
 
+bot = Client(
+    "bot",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN
+)
 # ==========================================
 # ⚙️ CONFIG
 # ==========================================
@@ -242,7 +248,7 @@ def build_item_list(items, batch_name):
 # ==========================================
 # 🔑 /pw
 # ==========================================
-@Client.on_message(filters.command("pw") & filters.private)
+@bot.on_message(filters.command("pw") & filters.private)
 async def pw_cmd(client, message):
     uid = message.from_user.id
     pending_tokens.pop(uid, None)
@@ -252,7 +258,7 @@ async def pw_cmd(client, message):
     user_states[uid] = {"state": "WAIT_FOR_TOKEN"}
     await message.reply_text("🔑 **Step 1/2 — PW JWT Token bhejein:**")
 
-@Client.on_message(filters.command("cancel") & filters.private)
+@bot.on_message(filters.command("cancel") & filters.private)
 async def cancel_cmd(client, message):
     uid = message.from_user.id
     user_states.pop(uid, None)
@@ -261,7 +267,7 @@ async def cancel_cmd(client, message):
     pending_batch.pop(uid, None)
     await message.reply_text("❌ Cancelled. `/pw` se dobara shuru karein.")
 
-@Client.on_message(filters.text & filters.private)
+@bot.on_message(filters.text & filters.private)
 async def handle_text(client, message):
     uid = message.from_user.id
     if uid not in user_states: return
@@ -357,13 +363,13 @@ async def show_main_menu(message):
     buttons = [[InlineKeyboardButton("🔍 Search Batch", callback_data="menu_search")]]
     await message.reply_text("👋 **Welcome!**\nOption:", reply_markup=InlineKeyboardMarkup(buttons))
 
-@Client.on_callback_query(filters.regex(r"^back_main$"))
+@bot.on_callback_query(filters.regex(r"^back_main$"))
 async def back_main(c, cb: CallbackQuery):
     await cb.answer()
     buttons = [[InlineKeyboardButton("🔍 Search Batch", callback_data="menu_search")]]
     await cb.message.edit_text("👋 **Welcome!**\nOption:", reply_markup=InlineKeyboardMarkup(buttons))
 
-@Client.on_callback_query(filters.regex(r"^menu_search$"))
+@bot.on_callback_query(filters.regex(r"^menu_search$"))
 async def menu_search(c, cb: CallbackQuery):
     await cb.answer()
     user_states[cb.from_user.id] = {"state": "WAIT_FOR_BATCH_SEARCH"}
@@ -372,7 +378,7 @@ async def menu_search(c, cb: CallbackQuery):
 # ==========================================
 # 🎯 BATCH → QUALITY
 # ==========================================
-@Client.on_callback_query(filters.regex(r"^bat_(.*)"))
+@bot.on_callback_query(filters.regex(r"^bat_(.*)"))
 async def batch_selected(c, cb: CallbackQuery):
     await cb.answer()
     uid = cb.matches[0].group(1)
@@ -387,7 +393,7 @@ async def batch_selected(c, cb: CallbackQuery):
     ]
     await cb.message.edit_text(f"✅ **Batch:** `{b['name']}`\n\n🎯 **Quality chunein:**", reply_markup=InlineKeyboardMarkup(buttons))
 
-@Client.on_callback_query(filters.regex(r"^q_(\d+)_(.*)$"))
+@bot.on_callback_query(filters.regex(r"^q_(\d+)_(.*)$"))
 async def quality_selected(c, cb: CallbackQuery):
     await cb.answer()
     quality, uid = cb.matches[0].group(1), cb.matches[0].group(2)
@@ -409,7 +415,7 @@ async def quality_selected(c, cb: CallbackQuery):
 # ==========================================
 # 📅 SCHEDULE — PREPARE ITEMS
 # ==========================================
-@Client.on_callback_query(filters.regex(r"^opt_sch_(.*)"))
+@bot.on_callback_query(filters.regex(r"^opt_sch_(.*)"))
 async def schedule_menu(c, cb: CallbackQuery):
     await cb.answer()
     uid = cb.matches[0].group(1)
@@ -420,7 +426,7 @@ async def schedule_menu(c, cb: CallbackQuery):
     ]
     await cb.message.edit_text("📅 **Din chunein:**", reply_markup=InlineKeyboardMarkup(buttons))
 
-@Client.on_callback_query(filters.regex(r"^sch_today_(.*)"))
+@bot.on_callback_query(filters.regex(r"^sch_today_(.*)"))
 async def schedule_today(c, cb: CallbackQuery):
     await cb.answer("⏳ Fetching...")
     uid = cb.matches[0].group(1)
@@ -429,7 +435,7 @@ async def schedule_today(c, cb: CallbackQuery):
     if not token or not cookie: return await cb.answer("❌ `/pw`", show_alert=True)
     await prepare_schedule_items(cb.message, uid, datetime.today().strftime('%Y-%m-%d'), token, cookie, quality)
 
-@Client.on_callback_query(filters.regex(r"^sch_date_(.*)"))
+@bot.on_callback_query(filters.regex(r"^sch_date_(.*)"))
 async def schedule_date(c, cb: CallbackQuery):
     await cb.answer()
     uid = cb.matches[0].group(1)
@@ -517,7 +523,7 @@ async def prepare_schedule_items(message_obj, uid, target_date, token, cookie, q
 # ==========================================
 # 📚 CHAPTER — PREPARE ITEMS
 # ==========================================
-@Client.on_callback_query(filters.regex(r"^opt_chp_(.*)"))
+@bot.on_callback_query(filters.regex(r"^opt_chp_(.*)"))
 async def chapter_subjects(c, cb: CallbackQuery):
     await cb.answer()
     uid = cb.matches[0].group(1)
@@ -535,7 +541,7 @@ async def chapter_subjects(c, cb: CallbackQuery):
     buttons.append([InlineKeyboardButton("🔙 Back", callback_data=f"q_{user_quality.get(cb.from_user.id,'720')}_{uid}")])
     await cb.message.edit_text("📚 **Subject:**", reply_markup=InlineKeyboardMarkup(buttons))
 
-@Client.on_callback_query(filters.regex(r"^chp_sub_(.*)"))
+@bot.on_callback_query(filters.regex(r"^chp_sub_(.*)"))
 async def chapter_list(c, cb: CallbackQuery):
     await cb.answer()
     uid = cb.matches[0].group(1)
@@ -558,7 +564,7 @@ async def chapter_list(c, cb: CallbackQuery):
     buttons.append([InlineKeyboardButton("🔙 Back", callback_data=f"opt_chp_{uid}")])
     await cb.message.edit_text("📑 **Chapter:**", reply_markup=InlineKeyboardMarkup(buttons))
 
-@Client.on_callback_query(filters.regex(r"^chp_item_(.*)"))
+@bot.on_callback_query(filters.regex(r"^chp_item_(.*)"))
 async def chapter_prepare(c, cb: CallbackQuery):
     await cb.answer("⏳ Fetching...")
     uid = cb.matches[0].group(1)
@@ -571,7 +577,7 @@ async def chapter_prepare(c, cb: CallbackQuery):
 # ==========================================
 # 📒 STUDY — PREPARE ITEMS
 # ==========================================
-@Client.on_callback_query(filters.regex(r"^opt_stu_(.*)"))
+@bot.on_callback_query(filters.regex(r"^opt_stu_(.*)"))
 async def study_subjects(c, cb: CallbackQuery):
     await cb.answer()
     uid = cb.matches[0].group(1)
@@ -589,7 +595,7 @@ async def study_subjects(c, cb: CallbackQuery):
     buttons.append([InlineKeyboardButton("🔙 Back", callback_data=f"q_{user_quality.get(cb.from_user.id,'720')}_{uid}")])
     await cb.message.edit_text("📚 **Subject:**", reply_markup=InlineKeyboardMarkup(buttons))
 
-@Client.on_callback_query(filters.regex(r"^stu_sub_(.*)"))
+@bot.on_callback_query(filters.regex(r"^stu_sub_(.*)"))
 async def study_folders(c, cb: CallbackQuery):
     await cb.answer()
     uid = cb.matches[0].group(1)
@@ -612,7 +618,7 @@ async def study_folders(c, cb: CallbackQuery):
     buttons.append([InlineKeyboardButton("🔙 Back", callback_data=f"opt_stu_{uid}")])
     await cb.message.edit_text("📑 **Folder:**", reply_markup=InlineKeyboardMarkup(buttons))
 
-@Client.on_callback_query(filters.regex(r"^stu_item_(.*)"))
+@bot.on_callback_query(filters.regex(r"^stu_item_(.*)"))
 async def study_prepare(c, cb: CallbackQuery):
     await cb.answer("⏳ Fetching...")
     uid = cb.matches[0].group(1)
@@ -690,7 +696,7 @@ async def prepare_tag_items(message_obj, user_id, d, token, cookie, quality):
 # ==========================================
 # 📥 FULL BATCH — PREPARE ITEMS
 # ==========================================
-@Client.on_callback_query(filters.regex(r"^full_(.*)"))
+@bot.on_callback_query(filters.regex(r"^full_(.*)"))
 async def full_batch(c, cb: CallbackQuery):
     await cb.answer("⏳ Full batch...")
     uid = cb.matches[0].group(1)
@@ -843,3 +849,7 @@ async def start_download(client, message, user_id, items, start_idx, total, pb):
     # sent_msg_ids clean
     sent_msg_ids[user_id] = []
     pending_batch.pop(user_id, None)
+
+
+
+bot.run()
